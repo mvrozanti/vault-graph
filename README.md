@@ -1,9 +1,10 @@
 # vault-graph
 
-Force-directed canvas viewer for an Obsidian-style markdown vault, with a
-side panel that renders any clicked note. Same engine that powers
-[demo.mvr.ac](https://demo.mvr.ac) (read-only static vault) and
-[basilica.mvr.ac](https://basilica.mvr.ac) (collaborative, git-backed).
+Force-directed canvas viewer for an Obsidian-style markdown vault, with
+a side panel that renders any clicked note. Drop it on top of a
+precomputed `graph.json` + a folder of markdown and you have an
+interactive map of your notes; provide write callbacks and you have a
+collaborative editor.
 
 ```
                   ┌──────────────────────────┐
@@ -14,9 +15,9 @@ side panel that renders any clicked note. Same engine that powers
                            │ vendored copy
             ┌──────────────┴──────────────┐
             ▼                             ▼
-     fake-obsidian                    basilica
-     (static fetch,                   (API fetch,
-      read-only)                       edit + comments + auth)
+   static consumer                  collaborative consumer
+     (static fetch,                  (API fetch,
+      read-only)                      edit + comments + auth)
 ```
 
 ## Use

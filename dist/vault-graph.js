@@ -5,9 +5,9 @@
  *   const vg = VaultGraph.create({
  *     rootEl: document.body,                     // optional, defaults to <body>
  *     brand: {
- *       title: 'basilica',                       // HUD title
+ *       title: 'my vault',                       // HUD title
  *       blurbHTML: 'Click a node to read…',      // HUD blurb (HTML)
- *       footerHTML: 'basilica · Palpitador',     // bottom-right footer (HTML)
+ *       footerHTML: 'my-vault',                  // bottom-right footer (HTML)
  *     },
  *     fetchGraph: () => Promise<{nodes, links}>, // required — {id, label, group, path, deg}
  *     fetchNote:  (path) => Promise<string>,     // required — raw markdown
