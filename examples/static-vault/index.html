@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>vault-graph — static vault example</title>
+<link rel="stylesheet" href="../../dist/vault-graph.css">
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="../../dist/vault-graph.js"></script>
+<script>
+// Minimal consumer: static `graph.json` + raw markdown files in `vault/`.
+// Generate graph.json with: python3 build_graph.py vault/
+VaultGraph.create({
+  brand: {
+    title: "static-vault",
+    blurbHTML: "Example: a read-only vault viewer. Click a node, drag to rearrange, search to filter.",
+    footerHTML: 'vault-graph — <a href="https://github.com/mvrozanti/vault-graph">github</a>',
+  },
+  fetchGraph: () => fetch("graph.json").then(r => r.json()),
+  fetchNote:  (path) => fetch("vault/" + path.split("/").map(encodeURIComponent).join("/")).then(r => {
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.text();
+  }),
+});
+</script>
+</body>
+</html>
