@@ -203,12 +203,10 @@
       });
     }
 
-    let maxNodeR = 0;
     for (const n of data.nodes) {
       n.r = 2.2 + Math.sqrt(n.deg || 0) * 1.6;
       n.hot = 0;
       n.match = 0;
-      if (n.r > maxNodeR) maxNodeR = n.r;
     }
     for (const l of data.links) l.hot = 0;
     let focusFactor = 0;
@@ -292,16 +290,26 @@
       const x = (mx - transform.x) / transform.k;
       const y = (my - transform.y) / transform.k;
       const HIT_PX = COARSE ? 22 : 16;
-      const radius = HIT_PX / transform.k;
-      // sim.find filters by distance from node *center*, so widen the search
-      // by the largest node radius — otherwise a cursor visually inside a big
-      // node but >HIT_PX from its center gets filtered out before the
-      // edge-aware check below.
-      const n = sim.find(x, y, maxNodeR + radius);
-      if (!n) return null;
-      const dx = n.x - x, dy = n.y - y;
-      const r = n.r + radius;
-      return (dx*dx + dy*dy <= r*r) ? n : null;
+      const slop = HIT_PX / transform.k;
+      // Scan every node: sim.find only returns the nearest *center*, which
+      // around a big high-degree node loses to its small neighbours and then
+      // fails the edge test — leaving the big node unselectable except dead
+      // centre. Pick the node the cursor is most "inside" of (smallest
+      // signed distance to edge), ties broken by larger radius.
+      let best = null;
+      let bestScore = Infinity;
+      for (const n of data.nodes) {
+        const dx = n.x - x, dy = n.y - y;
+        const d2 = dx*dx + dy*dy;
+        const reach = n.r + slop;
+        if (d2 > reach * reach) continue;
+        const score = Math.sqrt(d2) - n.r;
+        if (score < bestScore || (score === bestScore && best && n.r > best.r)) {
+          bestScore = score;
+          best = n;
+        }
+      }
+      return best;
     }
 
     canvas.addEventListener("mousemove", (e) => {
