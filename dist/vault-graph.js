@@ -193,6 +193,8 @@
 
     const hud = mount.querySelector("#hud");
     const catsToggle = mount.querySelector("#hud-categories");
+    // Desktop opens the legend by default; mobile keeps it collapsed.
+    if (!COARSE) hud.classList.add("expanded");
     if (catsToggle) {
       const t = () => hud.classList.toggle("expanded");
       catsToggle.addEventListener("click", t);
@@ -201,10 +203,12 @@
       });
     }
 
+    let maxNodeR = 0;
     for (const n of data.nodes) {
       n.r = 2.2 + Math.sqrt(n.deg || 0) * 1.6;
       n.hot = 0;
       n.match = 0;
+      if (n.r > maxNodeR) maxNodeR = n.r;
     }
     for (const l of data.links) l.hot = 0;
     let focusFactor = 0;
@@ -289,7 +293,11 @@
       const y = (my - transform.y) / transform.k;
       const HIT_PX = COARSE ? 22 : 16;
       const radius = HIT_PX / transform.k;
-      const n = sim.find(x, y, radius);
+      // sim.find filters by distance from node *center*, so widen the search
+      // by the largest node radius — otherwise a cursor visually inside a big
+      // node but >HIT_PX from its center gets filtered out before the
+      // edge-aware check below.
+      const n = sim.find(x, y, maxNodeR + radius);
       if (!n) return null;
       const dx = n.x - x, dy = n.y - y;
       const r = n.r + radius;
@@ -354,6 +362,10 @@
 
     canvas.addEventListener("auxclick", (e) => { if (e.button === 1) e.preventDefault(); });
     canvas.addEventListener("contextmenu", (e) => { if (midPan) e.preventDefault(); });
+    // Drop node-hover state when the cursor leaves the canvas — otherwise
+    // hovering over the legend reads a stale `hover` and renderGroup bails
+    // before it can show the category highlight.
+    canvas.addEventListener("mouseleave", () => { tooltip.style.opacity = 0; if (hover) setHover(null); });
 
     window.addEventListener("mouseup", (e) => {
       if (e.button === 1 && midPan) {
@@ -403,7 +415,8 @@
     }
 
     function tickFocus() {
-      const focused = hover != null || searchTerm.length > 0;
+      const focused = hover != null || searchTerm.length > 0
+                   || hoverGroup != null || stuckGroup != null;
       const targetFocus = focused ? 1 : 0;
       let animating = Math.abs(targetFocus - focusFactor) > EPS;
       focusFactor += (targetFocus - focusFactor) * EASE;
@@ -750,3 +763,4 @@
 
   root.VaultGraph = { create };
 })(window);
+console.info('vault-graph build 9862541c loaded');
