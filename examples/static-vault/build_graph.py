@@ -8,10 +8,20 @@ from pathlib import Path
 WIKILINK = re.compile(r"\[\[([^\]\n|#]+)(?:#[^\]\n|]+)?(?:\|[^\]\n]+)?\]\]")
 MDLINK = re.compile(r"\[(?:[^\]]+)\]\(([^)\s]+?\.md)(?:#[^)]*)?\)")
 SKIP_DIRS = {".obsidian", ".trash", ".git", "node_modules"}
+CODE_SPAN = re.compile(r"`[^`\n]*`")
+FENCE = re.compile(r"```.*?```", re.DOTALL)
+
+
+def heading_title(text: str) -> str:
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("# ") and not s.startswith("## "):
+            return s[2:].strip()
+    return ""
 
 
 def scan(vault: Path):
-    files, paths_by_rel = {}, {}
+    files, names, paths_by_rel = {}, {}, {}
     for p in vault.rglob("*.md"):
         rel = p.relative_to(vault)
         if any(part in SKIP_DIRS for part in rel.parts):
@@ -20,9 +30,32 @@ def scan(vault: Path):
         group = rel.parts[0] if len(rel.parts) > 1 else "_root"
         if key in files:
             key = str(rel).lower().replace("/", "__").removesuffix(".md")
-        files[key] = (p.stem, group, p, str(rel))
+        try:
+            text = p.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            text = ""
+        files[key] = (p.stem, group, p, str(rel), text)
         paths_by_rel[str(rel).lower()] = key
-    return files, paths_by_rel
+        for name in (
+            p.stem,
+            heading_title(text),
+            str(rel).removesuffix(".md"),
+            str(rel).removesuffix(".md").replace("/", "__"),
+        ):
+            n = name.strip().lower()
+            if n:
+                names.setdefault(n, key)
+    return files, names, paths_by_rel
+
+
+def resolve_wikilink(target: str, names: dict):
+    t = target.strip().lower()
+    if not t:
+        return None
+    if t in names:
+        return names[t]
+    seg = t.rsplit("/", 1)[-1].strip()
+    return names.get(seg)
 
 
 def resolve_md_target(raw: str, src_rel: str, paths_by_rel: dict):
@@ -38,28 +71,25 @@ def resolve_md_target(raw: str, src_rel: str, paths_by_rel: dict):
 
 
 def build(vault: Path):
-    files, paths_by_rel = scan(vault)
+    files, names, paths_by_rel = scan(vault)
     nodes, links, id_index = [], [], {}
-    for key, (label, group, _path, rel) in files.items():
+    for key, (label, group, _path, rel, _text) in files.items():
         id_index[key] = len(nodes)
         nodes.append({"id": key, "label": label, "group": group, "path": rel, "deg": 0})
 
     edge_set = set()
-    for key, (_label, _group, path, rel) in files.items():
-        try:
-            text = path.read_text(encoding="utf-8", errors="ignore")
-        except OSError:
-            continue
+    for key, (_label, _group, path, rel, text) in files.items():
+        text = FENCE.sub("", text)
+        text = CODE_SPAN.sub("", text)
         targets = set()
         for m in WIKILINK.finditer(text):
-            t = m.group(1).strip().lower()
-            if t in files:
-                targets.add(t)
-            else:
+            t = resolve_wikilink(m.group(1), names)
+            if t is None:
+                t = m.group(1).strip().lower()
                 if t not in id_index:
                     id_index[t] = len(nodes)
                     nodes.append({"id": t, "label": t, "group": "_unresolved", "deg": 0})
-                targets.add(t)
+            targets.add(t)
         for m in MDLINK.finditer(text):
             r = resolve_md_target(m.group(1), rel, paths_by_rel)
             if r:
